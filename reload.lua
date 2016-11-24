@@ -1,6 +1,9 @@
 local reload = {}
 local sandbox = {}
 
+local table = table
+local debug = debug
+
 do -- sandbox begin
 
 local function findloader(name)
@@ -558,13 +561,25 @@ local function update_funcs(map)
 	local root = debug.getregistry()
 	local co = coroutine.running()
 	local exclude = { [map] = true , [co] = true }
+	local getmetatable = debug.getmetatable
+	local getinfo = debug.getinfo
+	local getlocal = debug.getlocal
+	local setlocal = debug.setlocal
+	local getupvalue = debug.getupvalue
+	local setupvalue = debug.setupvalue
+	local getuservalue = debug.getuservalue
+	local setuservalue = debug.setuservalue
+	local type = type
+	local next = next
+	local rawset = rawset
+
 	exclude[exclude] = true
 
 
 	local update_funcs_
 
 	local function update_funcs_frame(co,level)
-		local info = debug.getinfo(co, level+1, "f")
+		local info = getinfo(co, level+1, "f")
 		if info == nil then
 			return
 		end
@@ -573,7 +588,7 @@ local function update_funcs(map)
 		update_funcs_(f)
 		local i = 1
 		while true do
-			local name, v = debug.getlocal(co, level+1, i)
+			local name, v = getlocal(co, level+1, i)
 			if name == nil then
 				if i > 0 then
 					i = -1
@@ -583,7 +598,7 @@ local function update_funcs(map)
 			end
 			update_funcs_(v)
 			if map[v] then
-				debug.setlocal(co, level+1, i, map[v])
+				setlocal(co, level+1, i, map[v])
 			end
 			if i > 0 then
 				i = i + 1
@@ -601,6 +616,8 @@ local function update_funcs(map)
 		local t = type(root)
 		if t == "table" then
 			exclude[root] = true
+			local mt = getmetatable(root)
+			if mt then update_funcs_(mt) end
 			local tmp
 			for k,v in next, root do
 				update_funcs_(k)
@@ -617,7 +634,7 @@ local function update_funcs(map)
 				end
 			end
 			if tmp then
-				for k,v in pairs(tmp) do
+				for k,v in next, tmp do
 					if root[v] == nil then
 						root[v] = root[k]
 					end
@@ -626,10 +643,12 @@ local function update_funcs(map)
 			end
 		elseif t == "userdata" then
 			exclude[root] = true
-			local uv = debug.getuservalue(root)
+			local mt = getmetatable(root)
+			if mt then update_funcs_(mt) end
+			local uv = getuservalue(root)
 			if uv then
 				if map[uv] then
-					debug.setuservalue(root, map[uv])
+					setuservalue(root, map[uv])
 				else
 					update_funcs_(uv)
 				end
@@ -641,22 +660,24 @@ local function update_funcs(map)
 			exclude[root] = true
 			local i = 1
 			while true do
-				local name, v = debug.getupvalue(root, i)
+				local name, v = getupvalue(root, i)
 				if name == nil then
 					break
 				else
 					update_funcs_(v)
 					if map[v] then
-						debug.setupvalue(root, i, map[v])
+						setupvalue(root, i, map[v])
 					end
 				end
 				i=i+1
 			end
 		end
-		local mt = debug.getmetatable(root)
-		if mt then
-			update_funcs_(mt)
-		end
+	end
+
+	-- nil, number, boolean, string, thread, function, lightuserdata may have metatable
+	for _,v in pairs { nil, 0, true, "", co, update_funcs, debug.upvalueid(update_funcs,1) } do
+		local mt = getmetatable(v)
+		if mt then update_funcs_(mt) end
 	end
 
 	update_funcs_frame(co, 2)
