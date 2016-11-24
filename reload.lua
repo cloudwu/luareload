@@ -559,7 +559,67 @@ local function slove_globals(all)
 	return i
 end
 
-local function update_funcs(map)
+--------- use a C module to extract proto in function
+
+local clonefunc = require "clonefunc"
+
+local function same_proto(f1,f2)
+	local uv = {}
+	local i = 1
+	while true do
+		local name = debug.getupvalue(f1, i)
+		if name == nil then
+			break
+		end
+		uv[name] = true
+		i = i + 1
+	end
+	for j = 1, i-1 do
+		local name = debug.getupvalue(f2, j)
+		if uv[name] == nil then
+			return false
+		end
+		uv[name] = nil
+	end
+	if debug.getupvalue(f2,i) then
+		return false
+	end
+	return true
+end
+
+local function extract_protos(func_map, proto_map)
+	local print = reload.print
+	local map = {}
+	local function internal_func(old_func, new_func, n)
+		for i=1,n do
+			local of = clonefunc.clone(old_func, i)
+			local op, cn = clonefunc.proto(of)
+			local nf = clonefunc.clone(new_func, i)
+			if nf == nil then
+				if print then print("MISSPROTO",op) end
+				map[op] = false
+				break
+			else
+				if same_proto(of, nf) then
+					if print then print("PROTOMATCH",op) end
+					map[op] = nf
+				else
+					if print then print("MISMATCH",op) end
+					map[op] = false
+				end
+			end
+		end
+	end
+	for old_func, new_func in pairs(func_map) do
+		local id, n = clonefunc.proto(old_func)
+		if id then
+			internal_func(old_func, new_func, n)
+		end
+	end
+	return map
+end
+
+local function update_funcs(map, proto_map)
 	local root = debug.getregistry()
 	local co = coroutine.running()
 	local exclude = { [map] = true , [co] = true }
@@ -571,12 +631,49 @@ local function update_funcs(map)
 	local setupvalue = debug.setupvalue
 	local getuservalue = debug.getuservalue
 	local setuservalue = debug.setuservalue
+	local upvaluejoin = debug.upvaluejoin
 	local type = type
 	local next = next
 	local rawset = rawset
+	local proto = clonefunc.proto
+	local clone = clonefunc.clone
+	local print = reload.print
 
 	exclude[exclude] = true
 
+	local function replace_proto(f)
+		if exclude[f] then
+			return exclude[f]
+		end
+		local nf = proto_map[proto(f)]
+		if nf == nil then
+			return
+		end
+		if nf == false then
+			return f	-- reserve f
+		end
+		nf = clone(nf)
+		local i = 1
+		while true do
+			local name = getupvalue(f)
+			if name == nil then
+				break
+			end
+			local j = 1
+			while true do
+				local name2 = getupvalue(nf)
+				assert(name2 ~= nil)
+				if name == name2 then
+					upvaluejoin(nf, j, f, i)
+					break
+				end
+				j = j + 1
+			end
+			i = i + 1
+		end
+
+		return nf
+	end
 
 	local update_funcs_
 
@@ -743,7 +840,9 @@ function reload.reload(list)
 	result = nil
 	sandbox.clear()
 
-	update_funcs(func_map)
+	local protos = extract_protos(func_map)
+
+	update_funcs(func_map, protos)
 
 	return true
 end
