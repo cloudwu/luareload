@@ -674,6 +674,7 @@ local function update_funcs(map, proto_map)
 			end
 			i = i + 1
 		end
+		exclude[f] = nf
 
 		return nf
 	end
