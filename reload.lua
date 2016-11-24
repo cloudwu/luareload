@@ -116,13 +116,15 @@ function global_dummy_mt:__index(k)
 	return make_dummy(key)
 end
 
+local _inext = ipairs {}
+
 -- the base lib function never return objects out of sandbox
 local safe_function = {
 	require = sandbox.require,	-- sandbox require
 	pairs = pairs,	-- allow pairs during require
 	next = next,
 	ipairs = ipairs,
-	_inext = ipairs(nil),
+	_inext = _inext,
 	print = print,	-- for debug
 }
 
@@ -622,24 +624,21 @@ local function update_funcs(map)
 			for k,v in next, root do
 				update_funcs_(k)
 				update_funcs_(v)
+				if map[v] then
+					rawset(root,k,map[v])
+				end
 				if map[k] then
 					if tmp == nil then
 						tmp = {}
-						exclude[tmp] = true
 					end
-					tmp[k] = v
-				end
-				if map[v] then
-					rawset(root,k,map[v])
+					tmp[k] = map[k]
 				end
 			end
 			if tmp then
 				for k,v in next, tmp do
-					if root[v] == nil then
-						root[v] = root[k]
-					end
-					root[k] = nil
+					root[k], root[v] = nil, root[k]
 				end
+				tmp = nil
 			end
 		elseif t == "userdata" then
 			exclude[root] = true

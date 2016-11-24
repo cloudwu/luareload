@@ -9,7 +9,10 @@ end
 
 mymod.foobar(42)
 
+local tmp = {}
 local foo = mymod.foo2()
+tmp[foo] = foo
+print("FOO before", foo)
 
 local obj = mymod.new()
 
@@ -23,5 +26,8 @@ end
 
 test()
 foo()
+
+print("FOO after", foo)
+assert(tmp[foo] == foo)
 
 obj:show()
