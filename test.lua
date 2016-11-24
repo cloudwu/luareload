@@ -18,6 +18,10 @@ local obj = mymod.new()
 
 obj:show()
 
+local geta = mymod.foo3()
+
+print("A =", geta())
+
 function test()
 	print("BEFORE update foo", foo)
 	reload.reload { "mymod" }
@@ -29,5 +33,6 @@ foo()
 
 print("FOO after", foo)
 assert(tmp[foo] == foo)
+print("A*2 =", geta())
 
 obj:show()

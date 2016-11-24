@@ -16,6 +16,12 @@ function mod.foo2()
 	return foobar
 end
 
+function mod.foo3()
+	return function()
+		return a
+	end
+end
+
 function mod.foobar(x)
 	a = x
 end

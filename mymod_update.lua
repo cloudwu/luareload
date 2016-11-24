@@ -5,7 +5,7 @@ local mod = {}
 local a
 
 local function foobar()
-	print "UPDATE"
+	print "UPDATE foobar"
 	return a
 end
 
@@ -18,6 +18,13 @@ end
 function mod.foo2()
 	return foobar
 end
+
+function mod.foo3()
+	return function()
+		return a * 2
+	end
+end
+
 
 function mod.foobar(x)
 	a = x
