@@ -25,4 +25,16 @@ end
 
 mod.getinfo = debug.getinfo
 
+local meta = {}
+
+meta.__index = meta
+
+function meta:show()
+	print("NEW")
+end
+
+function mod.new()
+	return setmetatable({}, meta)
+end
+
 return mod

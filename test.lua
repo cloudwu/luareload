@@ -11,6 +11,10 @@ mymod.foobar(42)
 
 local foo = mymod.foo2()
 
+local obj = mymod.new()
+
+obj:show()
+
 function test()
 	print("BEFORE update foo", foo)
 	reload.reload { "mymod" }
@@ -19,3 +23,5 @@ end
 
 test()
 foo()
+
+obj:show()

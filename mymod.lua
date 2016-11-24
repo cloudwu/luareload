@@ -20,5 +20,16 @@ function mod.foobar(x)
 	a = x
 end
 
+local meta = {}
+
+meta.__index = meta
+
+function meta:show()
+	print("OLD")
+end
+
+function mod.new()
+	return setmetatable({}, meta)
+end
 
 return mod
