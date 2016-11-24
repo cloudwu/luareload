@@ -598,9 +598,12 @@ local function update_funcs(map)
 					break
 				end
 			end
-			update_funcs_(v)
-			if map[v] then
-				setlocal(co, level+1, i, map[v])
+			local nv = map[v]
+			if nv then
+				setlocal(co, level+1, i, nv)
+				update_funcs_(nv)
+			else
+				update_funcs_(v)
 			end
 			if i > 0 then
 				i = i + 1
@@ -622,21 +625,27 @@ local function update_funcs(map)
 			if mt then update_funcs_(mt) end
 			local tmp
 			for k,v in next, root do
-				update_funcs_(k)
-				update_funcs_(v)
-				if map[v] then
-					rawset(root,k,map[v])
+				local nv = map[v]
+				if nv then
+					rawset(root,k,nv)
+					update_funcs_(nv)
+				else
+					update_funcs_(v)
 				end
-				if map[k] then
+				local nk = map[k]
+				if nk then
 					if tmp == nil then
 						tmp = {}
 					end
-					tmp[k] = map[k]
+					tmp[k] = nk
+				else
+					update_funcs_(k)
 				end
 			end
 			if tmp then
 				for k,v in next, tmp do
 					root[k], root[v] = nil, root[k]
+					update_funcs_(v)
 				end
 				tmp = nil
 			end
@@ -646,8 +655,10 @@ local function update_funcs(map)
 			if mt then update_funcs_(mt) end
 			local uv = getuservalue(root)
 			if uv then
-				if map[uv] then
-					setuservalue(root, map[uv])
+				local tmp = map[uv]
+				if tmp then
+					setuservalue(root, tmp)
+					update_funcs_(tmp)
 				else
 					update_funcs_(uv)
 				end
@@ -663,9 +674,12 @@ local function update_funcs(map)
 				if name == nil then
 					break
 				else
-					update_funcs_(v)
-					if map[v] then
-						setupvalue(root, i, map[v])
+					local nv = map[v]
+					if nv then
+						setupvalue(root, i, nv)
+						update_funcs_(nv)
+					else
+						update_funcs_(v)
 					end
 				end
 				i=i+1
