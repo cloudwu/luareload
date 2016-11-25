@@ -10,20 +10,24 @@ local function same_proto(f1,f2)
 		if name == nil then
 			break
 		end
-		uv[name] = true
+		if name ~= "_ENV" then	-- ignore _ENV
+			uv[name] = true
+		end
 		i = i + 1
 	end
-	for j = 1, i-1 do
-		local name = debug.getupvalue(f2, j)
-		if uv[name] == nil then
-			return false
+	i = 1
+	while true do
+		local name = debug.getupvalue(f2, i)
+		if name == nil then
+			-- new version can has less upvalue (uv is not empty)
+			return true
+		end
+		if name ~= "_ENV"  and uv[name] == nil then
+			return false	-- f2 add a new upvalue
 		end
 		uv[name] = nil
+		i = i + 1
 	end
-	if debug.getupvalue(f2,i) then
-		return false
-	end
-	return true
 end
 
 function hardreload.diff(m1, m2)
@@ -112,6 +116,34 @@ local function update_funcs(proto_map)
 
 	local update_funcs_
 
+	local function copy_function(f, nf)
+		local i = 1
+		while true do
+			local name = getupvalue(f,i)
+			if name == nil then
+				break
+			end
+			local j = 1
+			while true do
+				local name2 = getupvalue(nf,j)
+				if name2 == nil then
+					assert(name == "_ENV")
+					break
+				end
+				if name == name2 then
+					upvaluejoin(nf, j, f, i)
+					break
+				end
+				j = j + 1
+			end
+			i = i + 1
+		end
+		local name , value = getupvalue(nf, 1)
+		if name == "_ENV" and value == nil then
+			setupvalue(nf, 1, _ENV)
+		end
+	end
+
 	local map = setmetatable({}, { __index = function(self, f)
 		local nf = proto_map[proto(f)]
 		if nf == nil then
@@ -123,24 +155,7 @@ local function update_funcs(proto_map)
 			return f
 		end
 		nf = clone(nf)
-		local i = 1
-		while true do
-			local name = getupvalue(f,i)
-			if name == nil then
-				break
-			end
-			local j = 1
-			while true do
-				local name2 = getupvalue(nf,j)
-				assert(name2 ~= nil)
-				if name == name2 then
-					upvaluejoin(nf, j, f, i)
-					break
-				end
-				j = j + 1
-			end
-			i = i + 1
-		end
+		copy_function(f, nf)
 		self[f] = nf
 		update_funcs_(nf)
 		return nf
