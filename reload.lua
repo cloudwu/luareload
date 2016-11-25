@@ -622,7 +622,7 @@ end
 local function update_funcs(map, proto_map)
 	local root = debug.getregistry()
 	local co = coroutine.running()
-	local exclude = { [map] = true , [co] = true }
+	local exclude = { [map] = true , [co] = true , [proto_map] = true}
 	local getmetatable = debug.getmetatable
 	local getinfo = debug.getinfo
 	local getlocal = debug.getlocal
@@ -641,19 +641,17 @@ local function update_funcs(map, proto_map)
 
 	exclude[exclude] = true
 
-	local function replace_proto(f)
-		local ex = exclude[f]
-		if ex == true then
-			return
-		elseif ex then
-			return ex
-		end
+	local update_funcs_
+
+	setmetatable(map, { __index = function(self, f)
 		local nf = proto_map[proto(f)]
 		if nf == nil then
-			return
+			return nil
 		end
 		if nf == false then
-			return f	-- reserve f
+			self[f] = f
+			update_funcs_(f)
+			return f
 		end
 		nf = clone(nf)
 		local i = 1
@@ -674,11 +672,10 @@ local function update_funcs(map, proto_map)
 			end
 			i = i + 1
 		end
-
+		self[f] = nf
+		update_funcs_(nf)
 		return nf
-	end
-
-	local update_funcs_
+	end})
 
 	local function update_funcs_frame(co,level)
 		local info = getinfo(co, level+1, "f")
@@ -698,25 +695,16 @@ local function update_funcs(map, proto_map)
 					break
 				end
 			end
-			if v then
-				local p = replace_proto(v)
-				if p == v then
+			local nv = map[v]
+			if nv then
+				if nv == v then
 					if print then print("RESERVE local", name, v) end
-					p = nil
-				end
-				if p then
-					if print then print("REPLACE local", name, v) end
-					update_funcs_(p)
-					setlocal(co, level+1, i, p)
 				else
-					local nv = map[v]
-					if nv then
-						setlocal(co, level+1, i, nv)
-						update_funcs_(nv)
-					else
-						update_funcs_(v)
-					end
+					if print then print("REPLACE local", name, v) end
+					setlocal(co, level+1, i, nv)
 				end
+			else
+				update_funcs_(v)
 			end
 			if i > 0 then
 				i = i + 1
@@ -738,37 +726,27 @@ local function update_funcs(map, proto_map)
 			if mt then update_funcs_(mt) end
 			local tmp
 			for k,v in next, root do
-				local new_v = replace_proto(v)
-				if v == new_v then
-					if print then print("RESERVE value", v) end
-				elseif new_v then
-					if print then print("REPLACE value", v) end
-					rawset(root, k, new_v)
-					v = new_v
-				end
-				local new_k = replace_proto(k)
-				if k == new_k then
-					if print then print("RESERVE key", k) end
-				elseif new_k then
-					if print then print("REPLACE key", k) end
-					if tmp == nil then
-						tmp = {}
-					end
-					tmp[k] = new_k
-				end
 				local nv = map[v]
 				if nv then
-					rawset(root,k,nv)
-					update_funcs_(nv)
+					if nv == v then
+						if print then print("RESERVE value", v) end
+					else
+						if print then print("REPLACE value", v) end
+						rawset(root,k,nv)
+					end
 				else
 					update_funcs_(v)
 				end
 				local nk = map[k]
 				if nk then
-					if tmp == nil then
-						tmp = {}
+					if nk == k then
+						if print then print("RESERVE key", k) end
+					else
+						if tmp == nil then
+							tmp = {}
+						end
+						tmp[k] = nk
 					end
-					tmp[k] = nk
 				else
 					update_funcs_(k)
 				end
@@ -776,7 +754,7 @@ local function update_funcs(map, proto_map)
 			if tmp then
 				for k,v in next, tmp do
 					root[k], root[v] = nil, root[k]
-					update_funcs_(v)
+					if print then print("REPLACE key", k) end
 				end
 				tmp = nil
 			end
@@ -786,23 +764,16 @@ local function update_funcs(map, proto_map)
 			if mt then update_funcs_(mt) end
 			local uv = getuservalue(root)
 			if uv then
-				local p = replace_proto(uv)
-				if p == uv then
-					if print then print("RESERVE uservalue", uv) end
-					p = nil
-				end
-				if p then
-					if print then print("REPLACE uservalue", uv) end
-					setuservalue(root, p)
-					update_funcs_(p)
-				else
-					local tmp = map[uv]
-					if tmp then
-						setuservalue(root, tmp)
-						update_funcs_(tmp)
+				local tmp = map[uv]
+				if tmp then
+					if tmp == uv then
+						if print then print("RESERVE uservalue", uv) end
 					else
-						update_funcs_(uv)
+						if print then print("REPLACE uservalue", uv) end
+						setuservalue(root, tmp)
 					end
+				else
+					update_funcs_(uv)
 				end
 			end
 		elseif t == "thread" then
@@ -816,23 +787,16 @@ local function update_funcs(map, proto_map)
 				if name == nil then
 					break
 				elseif v then
-					local p = replace_proto(v)
-					if p == v then
-						if print then print("RESERVE upvalue", name, v) end
-						p = nil
-					end
-					if p then
-						if print then print("REPLACE upvalue", name, v) end
-						setupvalue(root, i, p)
-						update_funcs_(p)
-					else
-						local nv = map[v]
-						if uv then
-							setupvalue(root, i, uv)
-							update_funcs_(uv)
+					local nv = map[v]
+					if uv then
+						if nv == v then
+							if print then print("RESERVE upvalue", name, v) end
 						else
-							update_funcs_(v)
+							if print then print("REPLACE upvalue", name, v) end
+							setupvalue(root, i, uv)
 						end
+					else
+						update_funcs_(v)
 					end
 				end
 				i=i+1
