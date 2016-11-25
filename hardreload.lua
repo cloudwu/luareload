@@ -2,38 +2,46 @@ local clonefunc = require "clonefunc"
 
 local hardreload = {}
 
+local function same_proto(f1,f2)
+	local uv = {}
+	local i = 1
+	while true do
+		local name = debug.getupvalue(f1, i)
+		if name == nil then
+			break
+		end
+		uv[name] = true
+		i = i + 1
+	end
+	for j = 1, i-1 do
+		local name = debug.getupvalue(f2, j)
+		if uv[name] == nil then
+			return false
+		end
+		uv[name] = nil
+	end
+	if debug.getupvalue(f2,i) then
+		return false
+	end
+	return true
+end
+
 function hardreload.diff(m1, m2)
 	local clone = clonefunc.clone
 	local proto = clonefunc.proto
-	local getupvalue = debug.getupvalue
-	local getinfo = debug.getinfo
 
 	local diff = {}
 
 	local function funcinfo(f)
-		local info = getinfo(f, "S")
+		local info = debug.getinfo(f, "S")
 		return string.format("%s(%d-%d)",info.short_src,info.linedefined,info.lastlinedefined)
 	end
 
 	local function diff_(a,b)
 		local p1,n1 = proto(a)
 		local p2,n2 = proto(b)
-		if p1 == nil or p2 == nil or n1 ~= n2 then
+		if p1 == nil or p2 == nil or n1 ~= n2 or not same_proto(a,b) then
 			return funcinfo(a) .. "/" .. funcinfo(b)
-		end
-		local i = 1
-		while true do
-			local name = getupvalue(a, i)
-			if name == nil then
-				if getupvalue(b, i+1) ~= nil then
-					return funcinfo(a) .. "/" .. funcinfo(b)
-				end
-				break
-			end
-			if name ~= getupvalue(b,i) then
-				return funcinfo(a) .. "/" .. funcinfo(b)
-			end
-			i = i + 1
 		end
 		diff[p1] = b
 		for i = 1, n1 do
