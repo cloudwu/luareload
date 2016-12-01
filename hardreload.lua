@@ -138,9 +138,19 @@ local function update_funcs(proto_map)
 			end
 			i = i + 1
 		end
-		local name , value = getupvalue(nf, 1)
-		if name == "_ENV" and value == nil then
-			setupvalue(nf, 1, _ENV)
+		i = 1
+		while true do
+			local name , value = getupvalue(nf, i)
+			if name == nil then
+				break
+			end
+			if name == "_ENV" then
+				if value == nil then
+					setupvalue(nf, i, _ENV)
+				end
+				break
+			end
+			i = i + 1
 		end
 	end
 
