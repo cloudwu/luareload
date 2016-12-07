@@ -18,4 +18,10 @@ print(foo())
 print(foo())
 print(foo())
 
+print(hardreload.reload("hardmod" , "hardmod_update2"))
+
+print(foo())
+print(foo())
+print(foo())
+
 

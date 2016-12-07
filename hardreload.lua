@@ -35,6 +35,7 @@ function hardreload.diff(m1, m2)
 	local proto = clonefunc.proto
 
 	local diff = {}
+	local err = nil
 
 	local function funcinfo(f)
 		local info = debug.getinfo(f, "S")
@@ -44,24 +45,23 @@ function hardreload.diff(m1, m2)
 	local function diff_(a,b)
 		local p1,n1 = proto(a)
 		local p2,n2 = proto(b)
-		if p1 == nil or p2 == nil or n1 ~= n2 or not same_proto(a,b) then
-			return funcinfo(a) .. "/" .. funcinfo(b)
+		if p1 == nil or p2 == nil or n1 ~= n2 then
+			err = err or {}
+			table.insert(err, funcinfo(a) .. "/" .. funcinfo(b))
+			return
+		end
+		if not same_proto(a,b) then
+			err = err or {}
+			table.insert(err, funcinfo(a) .. "/" .. funcinfo(b))
 		end
 		diff[p1] = b
 		for i = 1, n1 do
-			local err = diff_(clone(a, i), clone(b, i))
-			if err then
-				return err
-			end
+			diff_(clone(a, i), clone(b, i))
 		end
 	end
 
-	local err = diff_(m1, m2)
-	if err then
-		return false, err
-	else
-		return diff
-	end
+	diff_(m1, m2)
+	return diff, err
 end
 
 local function findloader(name)
@@ -79,6 +79,8 @@ local function findloader(name)
 end
 
 local loaders = {}
+local origin = {}
+local old_functions = setmetatable({}, {__mode = "k"})
 
 function hardreload.require(name)
 	assert(type(name) == "string")
@@ -89,6 +91,7 @@ function hardreload.require(name)
 	local loader, arg = findloader(name)
 	local ret = loader(name, arg) or true
 	loaders[name] = loader
+	origin[name] = loader
 	_LOADED[name] = ret
 
 	return ret
@@ -97,7 +100,7 @@ end
 local function update_funcs(proto_map)
 	local root = debug.getregistry()
 	local co = coroutine.running()
-	local exclude = { [loaders] = true, [co] = true , [proto_map] = true}
+	local exclude = { [old_functions] = true,  [origin] = true, [loaders] = true, [co] = true , [proto_map] = true}
 	local getmetatable = debug.getmetatable
 	local getinfo = debug.getinfo
 	local getlocal = debug.getlocal
@@ -117,7 +120,9 @@ local function update_funcs(proto_map)
 	local update_funcs_
 
 	local function copy_function(f, nf)
+		f = old_functions[f] or f	-- find origin version
 		local i = 1
+		local oldf = nil
 		while true do
 			local name = getupvalue(f,i)
 			if name == nil then
@@ -127,8 +132,10 @@ local function update_funcs(proto_map)
 			while true do
 				local name2 = getupvalue(nf,j)
 				if name2 == nil then
-					-- remove upvalue is allowed
+					-- remove upvalue is allowed, record it in old_functions for upvalues
 					-- assert(name == "_ENV")
+					if print then print("REMOVE upvalue", name, nf) end
+					oldf = f
 					break
 				end
 				if name == name2 then
@@ -139,6 +146,7 @@ local function update_funcs(proto_map)
 			end
 			i = i + 1
 		end
+		old_functions[nf] = old_functions[nf] or oldf	-- don't clear old_functions
 		i = 1
 		while true do
 			local name , value = getupvalue(nf, i)
@@ -324,14 +332,22 @@ function hardreload.reload(name, updatename)
 	end
 	local loader = findloader(updatename)
 	local diff, err = hardreload.diff(loaders[name], loader)
-	if not diff then
-		return false, err
+	if err then
+		-- failed
+		if loaders[name] == origin[name] then
+			-- first time reload
+			return false, table.concat(err, "\n")
+		end
+		local _, err = hardreload.diff(origin[name], loader)
+		if err then
+			-- add upvalue not exist in origin version
+			return false, table.concat(err, "\n")
+		end
 	end
 
 	update_funcs(diff)
 	loaders[name] = loader
-
-	return _LOADED[name]
+	return true, _LOADED[name]
 end
 
 return hardreload
