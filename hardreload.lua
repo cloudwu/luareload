@@ -127,7 +127,8 @@ local function update_funcs(proto_map)
 			while true do
 				local name2 = getupvalue(nf,j)
 				if name2 == nil then
-					assert(name == "_ENV")
+					-- remove upvalue is allowed
+					-- assert(name == "_ENV")
 					break
 				end
 				if name == name2 then
