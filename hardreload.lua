@@ -327,7 +327,7 @@ function hardreload.reload(name, updatename)
 	updatename = updatename or name
 	local _LOADED = debug.getregistry()._LOADED
 	if _LOADED[name] == nil then
-		return hardreload.require(name)
+		return true, hardreload.require(name)
 	end
 	if loaders[name] == nil then
 		return false, "Can't find last version : " .. name
