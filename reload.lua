@@ -511,7 +511,7 @@ local function slove_globals(all)
 			local invalid
 			if getmetatable(v) == "GLOBAL" then
 				local G = _G
-				for w in string.gmatch(k, "[_%a]%w*") do
+				for w in string.gmatch(path, "[_%a]%w*") do
 					if G == nil then
 						invalid = true
 						break
