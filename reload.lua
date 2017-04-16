@@ -497,17 +497,17 @@ local function merge_objects(all)
 	end
 end
 
-local function slove_globals(all)
+local function solve_globals(all)
 	local _LOADED = debug.getregistry()._LOADED
 	local print = reload.print
 	local i = 0
 	for mod_name, data in pairs(all) do
 		for gk, item in pairs(data.globals) do
-			-- slove one global
+			-- solve one global
 			local v = item[1]
 			local path = tostring(v)
 			local value
-			local unsloved
+			local unsolved
 			local invalid
 			if getmetatable(v) == "GLOBAL" then
 				local G = _G
@@ -541,14 +541,14 @@ local function slove_globals(all)
 					local mt = getmetatable(mod)
 					if mt == "MODULE" then
 					else
-						unsloved = true
+						unsolved = true
 						value = mod
 					end
 			end
 			if invalid then
 				if print then print("GLOBAL INVALID", path) end
 				data.globals[gk] = nil
-			elseif not unsloved then
+			elseif not unsolved then
 				i = i + 1
 				if print then print("GLOBAL", path, value) end
 				set_object(value, _LOADED[mod_name], table.unpack(item,2))
@@ -729,7 +729,7 @@ function reload.reload(list)
 	end
 
 	repeat
-		local n = slove_globals(result)
+		local n = solve_globals(result)
 	until n == 0
 
 	local func_map = {}
