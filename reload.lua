@@ -257,7 +257,7 @@ local function enum_object(value)
 			local i = 1
 			while true do
 				local name, v = debug.getupvalue(value, i)
-				if name == nil then
+				if name == nil or name == "" then
 					break
 				else
 					if not name:find("^[_%w]") then
@@ -301,7 +301,7 @@ local function find_object(mod, name, id , ...)
 		local i = 1
 		while true do
 			local n, value = debug.getupvalue(mod, i)
-			if n == nil then
+			if n == nil or name == "" then
 				return
 			end
 			if n == name then
@@ -347,7 +347,7 @@ local function find_upvalue(func, name)
 	local i = 1
 	while true do
 		local n,v = debug.getupvalue(func, i)
-		if n == nil then
+		if n == nil or name == "" then
 			return
 		end
 		if n == name then
@@ -363,7 +363,7 @@ local function match_upvalues(map, upvalues)
 			local i = 1
 			while true do
 				local name, value = debug.getupvalue(new_one, i)
-				if name ==  nil then
+				if name == nil or name == "" then
 					break
 				end
 				local old_index = find_upvalue(old_one, name)
@@ -423,7 +423,7 @@ local function set_object(v, mod, name, tmore, fmore, ...)
 		local i = 1
 		while true do
 			local n, value = debug.getupvalue(mod, i)
-			if n == nil then
+			if n == nil or name == "" then
 				return false
 			end
 			if n == name then
@@ -445,7 +445,7 @@ local function patch_funcs(upvalues, map)
 			local i = 1
 			while true do
 				local name,v = debug.getupvalue(value, i)
-				if name == nil then
+				if name == nil or name == "" then
 					break
 				end
 				local id = debug.upvalueid(value, i)
