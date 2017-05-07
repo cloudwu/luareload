@@ -39,6 +39,7 @@ local module_dummy_mt = {
 	__newindex = error,
 	__pairs = error,
 	__tostring = function(self) return dummy_module_cache[self] end,
+	__call = function(...) end
 }
 
 local function make_dummy_module(name)

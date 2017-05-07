@@ -1,3 +1,7 @@
+local dummy_mod = require "dummy_module"
+
+dummy_mod.foo()
+
 local mod = {}
 
 local a = 1
