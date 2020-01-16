@@ -788,12 +788,12 @@ local function update_funcs(map, proto_map)
 					break
 				elseif v then
 					local nv = map[v]
-					if uv then
+					if nv then
 						if nv == v then
 							if print then print("RESERVE upvalue", name, v) end
 						else
 							if print then print("REPLACE upvalue", name, v) end
-							setupvalue(root, i, uv)
+							setupvalue(root, i, nv)
 						end
 					else
 						update_funcs_(v)
